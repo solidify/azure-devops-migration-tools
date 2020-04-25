@@ -124,7 +124,13 @@ namespace VstsSyncMigrator.Engine
             {
                 var targetPlanNames = (from ITestPlan tp in targetTestStore.GetTestPlans() select tp.Name).ToList();
                 toProcess = (from ITestPlan tp in sourcePlans where !targetPlanNames.Contains(tp.Name) select tp).ToList();
-            } else
+            }
+            else if(!string.IsNullOrEmpty(config.TestPlans))
+            {
+                var t = config.TestPlans.Split(';');
+                toProcess = (from ITestPlan tp in sourcePlans where t.Contains(tp.Name) select tp).ToList();
+            }
+            else
             {
                 toProcess = sourcePlans.ToList();
             }
@@ -537,7 +543,7 @@ AddParameter("PlanId", parameters, targetPlan.Id.ToString());
                 if (wi == null)
                 {
                     TraceWriteLine(source, string.Format("    Can't find work item for Test Case. Has it been migrated? {0} : {1} - {2} ", sourceTestCaseEntry.EntryType.ToString(), sourceTestCaseEntry.Id, sourceTestCaseEntry.Title), 15);
-                    break;
+                    continue;
                 }
                 var exists = (from tc in target.TestCases
                               where tc.TestCase.WorkItem.Id == wi.Id
@@ -703,58 +709,61 @@ AddParameter("PlanId", parameters, targetPlan.Id.ToString());
                 {
                     Trace.TraceError($"Target Reflected Work Item Not found for source WorkItem ID: {sourceTce.TestCase.WorkItem.Id}");
                 }
-                TraceWriteLine(sourceSuite, $"Test Point Assignement for wi{targetTc.Id}", 15);
-                //figure out test point assignments for each source tce
-                foreach (ITestPointAssignment tpa in sourceTce.PointAssignments)
+                else
                 {
-                    int sourceConfigurationId = tpa.ConfigurationId;
-
-                    TeamFoundationIdentity targetIdentity = null;
-
-                    if (tpa.AssignedTo != null)
+                    TraceWriteLine(sourceSuite, $"Test Point Assignement for wi{targetTc.Id}", 15);
+                    //figure out test point assignments for each source tce
+                    foreach (ITestPointAssignment tpa in sourceTce.PointAssignments)
                     {
-                        targetIdentity = GetTargetIdentity(tpa.AssignedTo.Descriptor);
-                        if (targetIdentity == null)
+                        int sourceConfigurationId = tpa.ConfigurationId;
+
+                        TeamFoundationIdentity targetIdentity = null;
+
+                        if (tpa.AssignedTo != null)
                         {
-                            sourceIdentityManagementService.RefreshIdentity(tpa.AssignedTo.Descriptor);
+                            targetIdentity = GetTargetIdentity(tpa.AssignedTo.Descriptor);
+                            if (targetIdentity == null)
+                            {
+                                sourceIdentityManagementService.RefreshIdentity(tpa.AssignedTo.Descriptor);
+                            }
+
+                            targetIdentity = GetTargetIdentity(tpa.AssignedTo.Descriptor);
                         }
 
-                        targetIdentity = GetTargetIdentity(tpa.AssignedTo.Descriptor);
-                    }
+                        // translate source configuration id to target configuration id and name
+                        //// Get source configuration name
+                        string sourceConfigName = (from tc in sourceTestConfigs
+                                                   where tc.Id == sourceConfigurationId
+                                                   select tc.Name).FirstOrDefault();
 
-                    // translate source configuration id to target configuration id and name
-                    //// Get source configuration name
-                    string sourceConfigName = (from tc in sourceTestConfigs
-                        where tc.Id == sourceConfigurationId
-                        select tc.Name).FirstOrDefault();
+                        //// Find source configuration name in target and get the id for it
+                        int targetConfigId = (from tc in targetTestConfigs
+                                              where tc.Name == sourceConfigName
+                                              select tc.Id).FirstOrDefault();
 
-                    //// Find source configuration name in target and get the id for it
-                    int targetConfigId = (from tc in targetTestConfigs
-                        where tc.Name == sourceConfigName
-                        select tc.Id).FirstOrDefault();
-
-                    if (targetConfigId != 0)
-                    {
-                        IdAndName targetConfiguration = new IdAndName(targetConfigId, sourceConfigName);
-
-                        var targetUserId = Guid.Empty;
-                        if (targetIdentity != null)
+                        if (targetConfigId != 0)
                         {
-                            targetUserId = targetIdentity.TeamFoundationId;
+                            IdAndName targetConfiguration = new IdAndName(targetConfigId, sourceConfigName);
+
+                            var targetUserId = Guid.Empty;
+                            if (targetIdentity != null)
+                            {
+                                targetUserId = targetIdentity.TeamFoundationId;
+                            }
+
+                            // Create a test point assignment with target test case id, target configuration (id and name) and target identity
+                            var newAssignment = targetSuite.CreateTestPointAssignment(
+                                targetTc.Id,
+                                targetConfiguration,
+                                targetUserId);
+
+                            // add the test point assignment to the list
+                            assignmentsToAdd.Add(newAssignment);
                         }
-
-                        // Create a test point assignment with target test case id, target configuration (id and name) and target identity
-                        var newAssignment = targetSuite.CreateTestPointAssignment(
-                            targetTc.Id,
-                            targetConfiguration,
-                            targetUserId);
-
-                        // add the test point assignment to the list
-                        assignmentsToAdd.Add(newAssignment);
-                    }
-                    else
-                    {
-                        Trace.WriteLine($"Cannot find configuration with name [{sourceConfigName}] in target. Cannot assign tester to it.", "TestPlansAndSuites");
+                        else
+                        {
+                            Trace.WriteLine($"Cannot find configuration with name [{sourceConfigName}] in target. Cannot assign tester to it.", "TestPlansAndSuites");
+                        }
                     }
                 }
             }
@@ -987,6 +996,7 @@ AddParameter("PlanId", parameters, targetPlan.Id.ToString());
 
             // Postprocessing common errors
             FixQueryForTeamProjectNameChange(source, targetSuiteChild, targetTestStore);
+            FixQueryForFieldNameChange(source, targetSuiteChild, targetTestStore);
             FixWorkItemIdInQuery(targetSuiteChild);
         }
 
@@ -1014,6 +1024,21 @@ AddParameter("PlanId", parameters, targetPlan.Id.ToString());
                             string.Format(@"'{0}", source.Plan.Project.TeamProjectName),
                             string.Format(@"'{0}", targetTestStore.Project.TeamProjectName)));
                 }
+                Trace.WriteLine(string.Format("New query is now {0}", targetSuiteChild.Query.QueryText));
+            }
+        }
+
+        private void FixQueryForFieldNameChange(ITestSuiteBase source, IDynamicTestSuite targetSuiteChild, TestManagementContext targetTestStore)
+        {
+            // Replacing old field name in queries with new field name
+            if(targetSuiteChild.Query.QueryText.Contains("Siemens.TestPriority"))
+            {
+                Trace.WriteLine(string.Format(@"Query contains 'Siemens.TestPriority', we need to fix the query in dynamic test suite to new field name."));
+
+                targetSuiteChild.Query = targetSuiteChild.Project.CreateTestQuery(targetSuiteChild.Query.QueryText.Replace(
+                        "Siemens.TestPriority",
+                        "Cerner.MigrationInfo2"));
+
                 Trace.WriteLine(string.Format("New query is now {0}", targetSuiteChild.Query.QueryText));
             }
         }
