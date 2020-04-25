@@ -4,8 +4,8 @@ The Azure DevOps Migration Tools allow you to bulk edit and migrate data between
 
 ![alt text](https://raw.githubusercontent.com/nkdAgility/azure-devops-migration-tools/master/src/VstsSyncMigrator.Extension/images/azure-devops-migration-tools-naked-agility-martin-hinshelwood.png)
 
-**WARNING: This tool is not designed for a novice. This tool was developed to support the senarios below, and the edge cases that have been encountered by the 30+ contributers from around the Azure DevOps community. You should be comfortable with the TFS/Azure DevOps object model, as well as debugging code in Visual Studio.**
-**Both paid and community support is available through our [recommneded consultants](http://nkdagility.github.io/azure-devops-migration-tools/#support) as well as our contributors and many DevOps consultants around the world.**
+**WARNING: This tool is not designed for a novice. This tool was developed to support the scenarios below, and the edge cases that have been encountered by the 30+ contributors from around the Azure DevOps community. You should be comfortable with the TFS/Azure DevOps object model, as well as debugging code in Visual Studio.**
+**Both paid and community support is available through our [recommended consultants](http://nkdagility.github.io/azure-devops-migration-tools/#support) as well as our contributors and many DevOps consultants around the world.**
 
 ## What can you do with this tool?
 
@@ -15,10 +15,12 @@ The Azure DevOps Migration Tools allow you to bulk edit and migrate data between
 - Split one Team Project into many Team Projects
 - Assistance in changing Process Templates
 - Bulk edit of Work Items
-- Migration of Test Suits & Test Plans
+- Migration of Test Suites & Test Plans
 
 ## Change Log
 
+- v8.9 - Added 'Collapse Revisions' feature to collapse and attache revisions instead of replaying them
+- v8.8 - 'SkipToFinalRevisedWorkItemType' feature added to handle scenario when changing Work Item Type
 - v8.7 - Support for inline images using a Personal Access Token added to the Source Project
 - v8.6 - Support for fixing links from TFVC Changesets to Git Commits using a mapping file generated from a Git-TFS migration.
 - v8.5 - Attachment Max size and linking work items to git repos between projects.
@@ -50,5 +52,5 @@ The Azure DevOps Migration Tools allow you to bulk edit and migrate data between
 | Maintainability | [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=vsts-sync-migrator%3Amaster&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=vsts-sync-migrator%3Amaster) |
 | Security Rating | [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=vsts-sync-migrator%3Amaster&metric=security_rating)](https://sonarcloud.io/dashboard?id=vsts-sync-migrator%3Amaster) |
 | Vulnerabilities | [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=vsts-sync-migrator%3Amaster&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=vsts-sync-migrator%3Amaster) |
-| Release |[![GitHub release](https://img.shields.io/github/release/nkdAgility/vsts-sync-migration.svg)](| Release |[![GitHub release](https://img.shields.io/github/release/nkdAgility/vsts-sync-migration.svg)](https://github.com/nkdAgility/azure-devops-migration-tools/releases)|
+| Release |![GitHub release](https://img.shields.io/github/release/nkdAgility/vsts-sync-migration.svg)| Release |[![GitHub release](https://img.shields.io/github/release/nkdAgility/vsts-sync-migration.svg)](https://github.com/nkdAgility/azure-devops-migration-tools/releases)|
 | Chocolatey |[![Chocolatey](https://img.shields.io/chocolatey/v/vsts-sync-migrator.svg)](https://chocolatey.org/packages/vsts-sync-migrator/)|

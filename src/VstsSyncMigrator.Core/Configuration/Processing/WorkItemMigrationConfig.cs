@@ -27,11 +27,14 @@ namespace VstsSyncMigrator.Engine.Configuration.Processing
 
         public bool FixHtmlAttachmentLinks { get; set; }
 
+        public bool SkipToFinalRevisedWorkItemType { get; set; }
+
         public int WorkItemCreateRetryLimit { get; set; }
 
         public bool FilterWorkItemsThatAlreadyExistInTarget { get; set; }
         public bool PauseAfterEachWorkItem { get; set; }
         public int AttachmentMazSize { get; set; }
+        public bool CollapseRevisions { get; set; }
 
         /// <inheritdoc />
         public bool IsProcessorCompatible(IReadOnlyList<ITfsProcessingConfig> otherProcessors)
