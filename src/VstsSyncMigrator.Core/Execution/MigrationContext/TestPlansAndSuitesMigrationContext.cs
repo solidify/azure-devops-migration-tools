@@ -286,17 +286,20 @@ namespace VstsSyncMigrator.Engine
             var sourceWI = sourceWitStore.Store.GetWorkItem(sourceWIId);
             var targetWI = targetWitStore.Store.GetWorkItem(targetWIId);
 
-            if (config.PrefixProjectToNodes)
-            {
-                targetWI.AreaPath = string.Format(@"{0}\{1}", engine.Target.Config.Project, sourceWI.AreaPath);
-                targetWI.IterationPath = string.Format(@"{0}\{1}", engine.Target.Config.Project, sourceWI.IterationPath);
-            }
-            else
-            {
-                var regex = new Regex(Regex.Escape(engine.Source.Config.Project));
-                targetWI.AreaPath = regex.Replace(sourceWI.AreaPath, engine.Target.Config.Project, 1);
-                targetWI.IterationPath = regex.Replace(sourceWI.IterationPath, engine.Target.Config.Project, 1);
-            }
+            //if (config.PrefixProjectToNodes)
+            //{
+            //    targetWI.AreaPath = string.Format(@"{0}\{1}", engine.Target.Config.Project, sourceWI.AreaPath);
+            //    targetWI.IterationPath = string.Format(@"{0}\{1}", engine.Target.Config.Project, sourceWI.IterationPath);
+            //}
+            //else
+            //{
+            //    var regex = new Regex(Regex.Escape(engine.Source.Config.Project));
+            //    targetWI.AreaPath = regex.Replace(sourceWI.AreaPath, engine.Target.Config.Project, 1);
+            //    targetWI.IterationPath = regex.Replace(sourceWI.IterationPath, engine.Target.Config.Project, 1);
+            //}
+
+            targetWI.AreaPath = GetNewNodeName(sourceWI.AreaPath, sourceWI.Project.Name, targetWI.Project.Name, targetWI.Store, "Area");
+            targetWI.IterationPath = GetNewNodeName(sourceWI.IterationPath, sourceWI.Project.Name, targetWI.Project.Name, targetWI.Store, "Iteration");
 
             me.ApplyFieldMappings(sourceWI, targetWI);
 
@@ -319,6 +322,55 @@ namespace VstsSyncMigrator.Engine
             targetWI.Save();
         }
 
+        NodeDetecomatic _nodeOMatic;
+
+        private string GetNewNodeName(string oldNodeName, string oldProjectName, string newProjectName, WorkItemStore newStore, string nodePath)
+        {
+            if (_nodeOMatic == null)
+            {
+                _nodeOMatic = new NodeDetecomatic(newStore);
+            }
+
+            // Replace project name with new name (if necessary) and inject nodePath (Area or Iteration) into path for node validation
+            string newNodeName = "";
+            if (config.PrefixProjectToNodes)
+            {
+                newNodeName = $@"{newProjectName}\{nodePath}\{oldNodeName}";
+            }
+            else
+            {
+                var regex = new Regex(Regex.Escape(oldProjectName));
+                if (oldNodeName.StartsWith($@"{oldProjectName}\{nodePath}\"))
+                {
+                    newNodeName = regex.Replace(oldNodeName, newProjectName, 1);
+                }
+                else
+                {
+                    newNodeName = regex.Replace(oldNodeName, $@"{newProjectName}\{nodePath}", 1);
+                }
+            }
+
+            // Validate the node exists
+            if (!_nodeOMatic.NodeExists(newNodeName))
+            {
+                Trace.WriteLine(string.Format("The Node '{0}' does not exist, leaving as '{1}'. This may be because it has been renamed or moved and no longer exists, or that you have not migrateed the Node Structure yet.", newNodeName, newProjectName));
+                newNodeName = newProjectName;
+            }
+
+            // Remove nodePath (Area or Iteration) from path for correct population in work item
+            if (newNodeName.StartsWith(newProjectName + '\\' + nodePath + '\\'))
+            {
+                return newNodeName.Remove(newNodeName.IndexOf($@"{nodePath}\"), $@"{nodePath}\".Length);
+            }
+            else if (newNodeName.StartsWith(newProjectName + '\\' + nodePath))
+            {
+                return newNodeName.Remove(newNodeName.IndexOf($@"{nodePath}"), $@"{nodePath}".Length);
+            }
+            else
+            {
+                return newNodeName;
+            }
+        }
         private void TagCompletedTargetPlan(int workItemId)
         {
             var targetPlanWorkItem = targetWitStore.Store.GetWorkItem(workItemId);
