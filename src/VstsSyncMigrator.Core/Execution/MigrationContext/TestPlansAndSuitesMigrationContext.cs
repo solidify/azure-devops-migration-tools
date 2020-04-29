@@ -1083,13 +1083,17 @@ AddParameter("PlanId", parameters, targetPlan.Id.ToString());
         private void FixQueryForFieldNameChange(ITestSuiteBase source, IDynamicTestSuite targetSuiteChild, TestManagementContext targetTestStore)
         {
             // Replacing old field name in queries with new field name
-            if(targetSuiteChild.Query.QueryText.Contains("Siemens.TestPriority"))
+            if (targetSuiteChild.Query.QueryText.Contains("Siemens.TestPriority") ||
+                targetSuiteChild.Query.QueryText.Contains("Siemens.TFS.Test.Prefix") ||
+                targetSuiteChild.Query.QueryText.Contains("Siemens.Scrum.RealVersion"))
             {
                 Trace.WriteLine(string.Format(@"Query contains 'Siemens.TestPriority', we need to fix the query in dynamic test suite to new field name."));
 
-                targetSuiteChild.Query = targetSuiteChild.Project.CreateTestQuery(targetSuiteChild.Query.QueryText.Replace(
-                        "Siemens.TestPriority",
-                        "Cerner.MigrationInfo2"));
+                var newQueryString = targetSuiteChild.Query.QueryText.Replace("Siemens.TestPriority", "Cerner.MigrationInfo2");
+                newQueryString = newQueryString.Replace("Siemens.TFS.Test.Prefix", "Cerner.MigrationInfo3");
+                newQueryString = newQueryString.Replace("Siemens.Scrum.RealVersion", "Cerner.PlannedShipment");
+
+                targetSuiteChild.Query = targetSuiteChild.Project.CreateTestQuery(newQueryString);
 
                 Trace.WriteLine(string.Format("New query is now {0}", targetSuiteChild.Query.QueryText));
             }
