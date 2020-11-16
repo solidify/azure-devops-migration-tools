@@ -94,12 +94,22 @@ namespace VstsSyncMigrator.Engine
             var sourceStore = new WorkItemStoreContext(me.Source, WorkItemStoreFlags.BypassRules);
             var tfsqc = new TfsQueryContext(sourceStore);
             tfsqc.AddParameter("TeamProject", me.Source.Config.Project);
-            tfsqc.Query =
-                string.Format(
-                    @"SELECT [System.Id], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = @TeamProject {0} ORDER BY {1}",
-                    _config.QueryBit, _config.OrderBit);
-            var sourceQueryResult = tfsqc.Execute();
-            var sourceWorkItems = (from WorkItem swi in sourceQueryResult select swi).ToList();
+            
+            List<WorkItem> sourceWorkItems;
+            if (string.IsNullOrEmpty(_config.FullQuery))
+            {
+                tfsqc.Query =
+                    string.Format(
+                        @"SELECT [System.Id], [System.Tags] FROM WorkItems WHERE {0} ORDER BY {1}",
+                        _config.QueryBit, _config.OrderBit);
+                var sourceQueryResult = tfsqc.Execute();
+                sourceWorkItems = (from WorkItem swi in sourceQueryResult select swi).ToList();
+            }
+            else
+            {
+                tfsqc.Query = _config.FullQuery;
+                sourceWorkItems = tfsqc.ExecuteLinksQuery();
+            }
             Trace.WriteLine($"Replay all revisions of {sourceWorkItems.Count} work items?", Name);
             //////////////////////////////////////////////////
             var targetStore = new WorkItemStoreContext(me.Target, WorkItemStoreFlags.BypassRules);

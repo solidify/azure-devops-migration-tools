@@ -14,6 +14,8 @@ namespace VstsSyncMigrator.Engine.Configuration.Processing
         public bool UpdateSourceReflectedId { get; set; }
         public bool BuildFieldTable { get; set; }
         public bool AppendMigrationToolSignatureFooter { get; set; }
+
+        public string FullQuery { get; set; }
         public string QueryBit { get; set; }
         /// <inheritdoc />
         public string OrderBit { get; set; }
