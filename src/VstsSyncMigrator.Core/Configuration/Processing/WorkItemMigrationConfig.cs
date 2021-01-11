@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
 namespace VstsSyncMigrator.Engine.Configuration.Processing
 {
@@ -13,6 +11,8 @@ namespace VstsSyncMigrator.Engine.Configuration.Processing
         public bool UpdateCreatedBy { get; set; }
         public bool BuildFieldTable { get; set; }
         public bool AppendMigrationToolSignatureFooter { get; set; }
+
+        public string FullQuery { get; set; }
         public string QueryBit { get; set; }
         /// <inheritdoc />
         public string OrderBit { get; set; }

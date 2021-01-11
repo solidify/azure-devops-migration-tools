@@ -2,25 +2,24 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+
 using Microsoft.TeamFoundation.Server;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
+using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Client;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Services.WebApi;
-using VstsSyncMigrator.Engine.Configuration.Processing;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
-using System.Collections;
-using VstsSyncMigrator.Core.Execution.OMatics;
-using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
-using System.Net;
-using System.ServiceModel.Channels;
-using System.IO;
+
 using Newtonsoft.Json;
+
 using VstsSyncMigrator.Core;
+using VstsSyncMigrator.Core.Execution.OMatics;
+using VstsSyncMigrator.Engine.Configuration.Processing;
 
 namespace VstsSyncMigrator.Engine
 {
@@ -94,17 +93,21 @@ namespace VstsSyncMigrator.Engine
             var sourceStore = new WorkItemStoreContext(me.Source, WorkItemStoreFlags.BypassRules);
             var tfsqc = new TfsQueryContext(sourceStore);
             tfsqc.AddParameter("TeamProject", me.Source.Config.Project);
+            List<WorkItem> sourceWorkItems;
+
             tfsqc.Query =
                 string.Format(
                     @"SELECT [System.Id], [System.Tags] FROM WorkItems WHERE [System.TeamProject] = @TeamProject {0} ORDER BY {1}",
-                    _config.QueryBit, _config.OrderBit);
+                    _config.FullQuery, _config.OrderBit);
             var sourceQueryResult = tfsqc.Execute();
-            var sourceWorkItems = (from WorkItem swi in sourceQueryResult select swi).ToList();
+            sourceWorkItems = (from WorkItem swi in sourceQueryResult select swi).ToList();
+
             Trace.WriteLine($"Replay all revisions of {sourceWorkItems.Count} work items?", Name);
             //////////////////////////////////////////////////
             var targetStore = new WorkItemStoreContext(me.Target, WorkItemStoreFlags.BypassRules);
             var destProject = targetStore.GetProject();
             Trace.WriteLine($"Found target project as {destProject.Name}", Name);
+
             //////////////////////////////////////////////////////////FilterCompletedByQuery
             if (_config.FilterWorkItemsThatAlreadyExistInTarget)
             {
@@ -328,7 +331,7 @@ namespace VstsSyncMigrator.Engine
                     finalDestType =
                        me.WorkItemTypeDefinitions[finalDestType].Map(last);
                 }
-                
+
                 //If work item hasn't been created yet, create a shell
                 if (targetWorkItem == null)
                 {
@@ -493,6 +496,9 @@ namespace VstsSyncMigrator.Engine
             {
                 if (newwit.Fields.Contains(f.ReferenceName) && !_ignore.Contains(f.ReferenceName) && (!newwit.Fields[f.ReferenceName].IsChangedInRevision || newwit.Fields[f.ReferenceName].IsEditable))
                 {
+                    if (f.ReferenceName.Equals("System.Parent", StringComparison.InvariantCultureIgnoreCase) && newwit.Fields["System.Parent"].Value != null)
+                        continue;
+
                     newwit.Fields[f.ReferenceName].Value = oldWi.Fields[f.ReferenceName].Value;
                 }
             }
@@ -555,7 +561,7 @@ namespace VstsSyncMigrator.Engine
             targetQuery.AddParameter("TeamProject", me.Target.Config.Project);
             targetQuery.Query =
                 string.Format(
-                    @"SELECT [System.Id], [{0}] FROM WorkItems WHERE [System.TeamProject] = @TeamProject {1} ORDER BY {2}",
+                    @"SELECT [System.Id], [{0}] FROM WorkItems WHERE System.TeamProject] = @TeamProject {1} ORDER BY {2}",
                      me.Target.Config.ReflectedWorkItemIDFieldName,
                     _config.QueryBit,
                     _config.OrderBit

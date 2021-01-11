@@ -1,7 +1,9 @@
-﻿using Microsoft.TeamFoundation.WorkItemTracking.Client;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
+
+using Microsoft.TeamFoundation.WorkItemTracking.Client;
+
 using VstsSyncMigrator.Engine;
 using VstsSyncMigrator.Engine.Execution.Exceptions;
 
@@ -105,7 +107,41 @@ namespace VstsSyncMigrator.Core.Execution.OMatics
             }
         }
 
-        private void CreateExternalLink(ExternalLink sourceLink, WorkItem target, bool save )
+        private void FixSharedSharedSteps(WorkItem wiSourceL, WorkItem wiTargetL, WorkItemStoreContext sourceStore,
+            WorkItemStoreContext targetStore, bool save)
+        {
+            const string microsoftVstsTcmSteps = "Microsoft.VSTS.TCM.Steps";
+            var oldSteps = wiTargetL.Fields[microsoftVstsTcmSteps].Value.ToString();
+            var newSteps = oldSteps;
+
+            var sourceSharedStepLinks = wiSourceL.Links.OfType<RelatedLink>()
+                .Where(x => x.LinkTypeEnd.Name == "Shared Steps").ToList();
+            var sourceSharedSteps =
+                sourceSharedStepLinks.Select(x => sourceStore.Store.GetWorkItem(x.RelatedWorkItemId));
+
+            foreach (WorkItem sourceSharedStep in sourceSharedSteps)
+            {
+                WorkItem matchingTargetSharedStep =
+                    targetStore.FindReflectedWorkItemByReflectedWorkItemId(sourceSharedStep);
+
+                if (matchingTargetSharedStep != null)
+                {
+                    newSteps = newSteps.Replace($"ref=\"{sourceSharedStep.Id}\"",
+                        $"ref=\"{matchingTargetSharedStep.Id}\"");
+                    wiTargetL.Fields[microsoftVstsTcmSteps].Value = newSteps;
+                }
+            }
+
+            if (wiTargetL.IsDirty && save)
+            {
+                wiTargetL.Fields["System.ChangedBy"].Value = "Migration";
+                wiTargetL.Save();
+            }
+        }
+
+
+
+        private void CreateExternalLink(ExternalLink sourceLink, WorkItem target, bool save)
         {
             var exist = (from Link l in target.Links
                          where l is ExternalLink && ((ExternalLink)l).LinkedArtifactUri == ((ExternalLink)sourceLink).LinkedArtifactUri
@@ -141,7 +177,7 @@ namespace VstsSyncMigrator.Core.Execution.OMatics
                    link.LinkedArtifactUri.StartsWith("vstfs:///Build/Build/", StringComparison.InvariantCultureIgnoreCase);
         }
 
-        private void CreateRelatedLink(WorkItem wiSourceL, RelatedLink item, WorkItem wiTargetL, WorkItemStoreContext sourceStore, WorkItemStoreContext targetStore, bool save )
+        private void CreateRelatedLink(WorkItem wiSourceL, RelatedLink item, WorkItem wiTargetL, WorkItemStoreContext sourceStore, WorkItemStoreContext targetStore, bool save)
         {
             RelatedLink rl = (RelatedLink)item;
             WorkItem wiSourceR = null;
@@ -265,7 +301,7 @@ namespace VstsSyncMigrator.Core.Execution.OMatics
             return item is RelatedLink;
         }
 
-        private void CreateHyperlink(Hyperlink sourceLink, WorkItem target, bool save )
+        private void CreateHyperlink(Hyperlink sourceLink, WorkItem target, bool save)
         {
             var exist = (from Link l in target.Links where l is Hyperlink && ((Hyperlink)l).Location == ((Hyperlink)sourceLink).Location select (Hyperlink)l).SingleOrDefault();
             if (exist == null)
@@ -277,7 +313,7 @@ namespace VstsSyncMigrator.Core.Execution.OMatics
                 {
                     target.Fields["System.ChangedBy"].Value = "Migration";
                     target.Save();
-                }                
+                }
             }
         }
 
